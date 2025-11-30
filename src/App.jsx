@@ -1,6 +1,6 @@
 import { useState } from "react";
 import MindMap from "./MindMap.jsx";
-import PdfViewer from "./PdfViewer";
+import PdfViewer from "./PdfViewer.jsx";
 
 export default function App() {
   const [mode, setMode] = useState("notes");
