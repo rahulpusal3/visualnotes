@@ -39,7 +39,7 @@ function MindMap({ nodes = [] }) {
   if (!nodes || nodes.length === 0) {
     return (
       <div style={{ padding: 40, color: "#666", textAlign: "center", fontSize: 16 }}>
-        No nodes yet — paste your notes and generate a mind map.
+        No nodes yet — paste your structured notes and generate a mind map.
       </div>
     );
   }
@@ -112,7 +112,7 @@ function MindMap({ nodes = [] }) {
                 fontWeight: 500,
               }}
             >
-              Loading image...
+              Loading...
             </div>
           )}
           <div
@@ -264,7 +264,7 @@ export default function App() {
     return structure;
   }
 
-  // FIXED: Layout nodes in proper mind map structure
+  // Layout nodes in proper mind map structure
   function layoutNodes(structure) {
     const nodes = [];
     let nodeId = 0;
@@ -281,15 +281,8 @@ export default function App() {
       };
       nodes.push(parentNode);
 
-      // Calculate total height needed for this parent's children
-      let totalChildrenHeight = 0;
-      parent.children.forEach(child => {
-        const grandchildCount = Math.min(child.children.length, 8);
-        totalChildrenHeight += Math.max(200, grandchildCount * 160);
-      });
-
       let childY = globalY;
-      const childX = 350; // Position children to the right of parent
+      const childX = 320;
 
       parent.children.forEach((child) => {
         const childNode = {
@@ -303,15 +296,15 @@ export default function App() {
         };
         nodes.push(childNode);
 
-        // Position grandchildren to the right of children
+        // Position grandchildren
         let grandY = childY;
-        const grandX = childX + 280;
+        const grandX = childX + 260;
         const maxGrandchildren = 8;
 
         child.children.slice(0, maxGrandchildren).forEach((grand) => {
           const grandNode = {
             id: `node-${nodeId++}`,
-            label: grand.label.length > 45 ? grand.label.substring(0, 45) + "..." : grand.label,
+            label: grand.label.length > 40 ? grand.label.substring(0, 40) + "..." : grand.label,
             level: 2,
             x: grandX,
             y: grandY,
@@ -322,12 +315,10 @@ export default function App() {
           grandY += 160;
         });
 
-        // Update childY for next child
         const childHeight = Math.max(200, Math.min(child.children.length, maxGrandchildren) * 160);
         childY += childHeight;
       });
 
-      // Update global Y position for next parent
       globalY = Math.max(globalY + 250, childY + 100);
     });
 
@@ -336,7 +327,7 @@ export default function App() {
 
   async function generateMindMapFromText() {
     if (!textInput.trim()) {
-      alert("Please enter some text to generate a mind map!");
+      alert("Please enter text to generate a mind map!");
       return;
     }
     
@@ -344,7 +335,7 @@ export default function App() {
     const structure = parseNotes(textInput);
     
     if (structure.length === 0) {
-      alert("Could not parse the text. Please check the format.");
+      alert("Could not parse the text. Please check the format and try again.");
       setLoading(false);
       return;
     }
@@ -366,26 +357,55 @@ export default function App() {
     setLoading(false);
   }
 
+  const exampleText = `Chapter: Thinking
+Introduction to Thinking Concepts: Cognitive Psychologist, Thinking, Symbols, Prototype, Categories
+Types of Thinking: Perceptual thinking, conceptual thinking, reflective thinking, creative thinking, critical thinking
+Mental structures: Concepts, schemas, mental imagery
+1. Reasoning: deductive reasoning, inductive reasoning, analogical reasoning
+2. Decision making
+3. Problem solving: well defined problems, ill-defined problems
+Problem solving strategies: sub goals, working backward, insight, Heuristics, algorithm, trial and error`;
+
   return (
     <div style={{ padding: 20, fontFamily: "system-ui, -apple-system, sans-serif", maxWidth: "100%" }}>
-      <h1 style={{ color: "#1976d2", marginBottom: 10 }}>VisualNotes – Image Mind Map Generator</h1>
+      <h1 style={{ color: "#1976d2", marginBottom: 10 }}>🧠 VisualNotes – Image Mind Map Generator</h1>
       <p style={{ color: "#666", marginBottom: 20 }}>
-        Paste structured notes below and generate an interactive visual mind map with images from Unsplash
+        Paste your structured notes below and generate an interactive visual mind map with images from Unsplash
       </p>
 
+      <div style={{ marginBottom: 15 }}>
+        <button
+          onClick={() => setTextInput(exampleText)}
+          style={{
+            padding: "8px 16px",
+            fontSize: 14,
+            background: "#f5f5f5",
+            color: "#333",
+            border: "1px solid #ddd",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontWeight: 500,
+          }}
+        >
+          📝 Load Example (Thinking)
+        </button>
+      </div>
+
       <textarea
-        placeholder="Example format:
-Chapter: Thinking
-Introduction to Thinking: Cognitive Psychologist, Symbols, Prototype
-Types of Thinking: Perceptual thinking, conceptual thinking, reflective thinking
-1. Reasoning: deductive reasoning, inductive reasoning
-2. Decision making
-3. Problem solving: well defined problems, ill-defined problems"
+        placeholder={`Paste structured notes in this format:
+
+Chapter: Topic Name
+Introduction to Topic: concept1, concept2, concept3
+Main Area 1: subtopic1, subtopic2, subtopic3
+1. Section One: detail1, detail2, detail3
+2. Section Two: detail1, detail2, detail3
+3. Section Three: detail1, detail2, detail3
+Key strategies: item1, item2, item3, item4`}
         value={textInput}
         onChange={(e) => setTextInput(e.target.value)}
         style={{
           width: "100%",
-          height: 220,
+          height: 240,
           padding: 12,
           fontSize: 14,
           border: "2px solid #ddd",
@@ -416,9 +436,9 @@ Types of Thinking: Perceptual thinking, conceptual thinking, reflective thinking
 
       {nodes.length > 0 && (
         <div style={{ marginTop: 30 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 15 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 15, flexWrap: "wrap" }}>
             <h2 style={{ color: "#333", fontSize: 20, margin: 0 }}>Your Visual Mind Map</h2>
-            <div style={{ display: "flex", gap: 15, fontSize: 13 }}>
+            <div style={{ display: "flex", gap: 15, fontSize: 13, flexWrap: "wrap" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <div style={{ width: 16, height: 16, background: "#e3f2fd", border: "2px solid #1976d2", borderRadius: 3 }}></div>
                 Main Topics
