@@ -1,6 +1,175 @@
 import { useState } from "react";
 
-// Modern MindMap Component with curved connections
+// Flipable Card Component
+function FlipCard({ node, onFlip }) {
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [aiInfo, setAiInfo] = useState("");
+  const [loadingInfo, setLoadingInfo] = useState(false);
+
+  const handleFlip = async () => {
+    if (!isFlipped && !aiInfo) {
+      setLoadingInfo(true);
+      // Generate AI facts
+      try {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 200,
+            messages: [
+              {
+                role: "user",
+                content: `Give me 3 brief, interesting facts about "${node.label}" in 2-3 sentences. Be concise and educational.`
+              }
+            ],
+          })
+        });
+        const data = await response.json();
+        if (data.content?.[0]?.text) {
+          setAiInfo(data.content[0].text);
+        } else {
+          setAiInfo(`${node.label}: Key concept in understanding this topic. Click to explore more connections in the mind map.`);
+        }
+      } catch (err) {
+        setAiInfo(`${node.label}: An important concept worth exploring further. Connect with related ideas to deepen understanding.`);
+      }
+      setLoadingInfo(false);
+    }
+    setIsFlipped(!isFlipped);
+  };
+
+  const cardStyle = {
+    position: "absolute",
+    left: node.x,
+    top: node.y,
+    width: node.level === 0 ? 240 : node.level === 1 ? 220 : 200,
+    height: 220,
+    perspective: "1000px",
+    zIndex: 100,
+    cursor: "pointer",
+  };
+
+  const cardInnerStyle = {
+    position: "relative",
+    width: "100%",
+    height: "100%",
+    transition: "transform 0.6s",
+    transformStyle: "preserve-3d",
+    transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+  };
+
+  const cardFaceStyle = {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    backfaceVisibility: "hidden",
+    borderRadius: 16,
+    overflow: "hidden",
+    boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
+  };
+
+  const frontStyle = {
+    ...cardFaceStyle,
+    background: "white",
+  };
+
+  const backStyle = {
+    ...cardFaceStyle,
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    transform: "rotateY(180deg)",
+    padding: 20,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    color: "white",
+  };
+
+  return (
+    <div style={cardStyle} onClick={handleFlip}>
+      <div style={cardInnerStyle}>
+        {/* Front */}
+        <div style={frontStyle}>
+          <div style={{
+            width: "100%",
+            height: 140,
+            background: node.image 
+              ? `url(${node.image}) center/cover` 
+              : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white",
+            fontSize: 14,
+            fontWeight: 600,
+          }}>
+            {!node.image && "⏳"}
+          </div>
+          <div style={{
+            padding: 16,
+            textAlign: "center",
+            borderTop: `3px solid ${node.level === 0 ? "#667eea" : node.level === 1 ? "#764ba2" : "#f093fb"}`,
+          }}>
+            <div style={{
+              fontSize: node.level === 0 ? 16 : node.level === 1 ? 15 : 14,
+              fontWeight: node.level === 0 ? 700 : 600,
+              lineHeight: 1.4,
+              color: "#1a1a1a",
+            }}>
+              {node.label}
+            </div>
+            <div style={{
+              marginTop: 8,
+              fontSize: 11,
+              color: "#999",
+              fontWeight: 500,
+            }}>
+              Click to flip 🔄
+            </div>
+          </div>
+        </div>
+
+        {/* Back */}
+        <div style={backStyle}>
+          {loadingInfo ? (
+            <div>⏳ Loading facts...</div>
+          ) : (
+            <>
+              <div style={{
+                fontSize: 15,
+                fontWeight: 700,
+                marginBottom: 12,
+                textAlign: "center",
+              }}>
+                {node.label}
+              </div>
+              <div style={{
+                fontSize: 13,
+                lineHeight: 1.5,
+                textAlign: "center",
+                opacity: 0.95,
+              }}>
+                {aiInfo || "Click to see details..."}
+              </div>
+              <div style={{
+                marginTop: 12,
+                fontSize: 11,
+                opacity: 0.8,
+              }}>
+                Click to flip back 🔄
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Modern MindMap Component
 function MindMap({ nodes = [] }) {
   const containerStyle = {
     position: "relative",
@@ -8,55 +177,17 @@ function MindMap({ nodes = [] }) {
     minHeight: 1000,
     border: "none",
     overflow: "auto",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    background: "#ffffff",
     borderRadius: 16,
     padding: 40,
+    boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
   };
-
-  const nodeBox = (n) => ({
-    position: "absolute",
-    left: n.x,
-    top: n.y,
-    width: n.level === 0 ? 240 : n.level === 1 ? 220 : 200,
-    padding: 0,
-    boxSizing: "border-box",
-    background: "white",
-    borderRadius: 16,
-    boxShadow: n.level === 0 
-      ? "0 20px 60px rgba(0,0,0,0.3)" 
-      : "0 10px 40px rgba(0,0,0,0.2)",
-    overflow: "hidden",
-    zIndex: 100,
-    transition: "transform 0.3s ease, box-shadow 0.3s ease",
-    cursor: "pointer",
-  });
-
-  const imgContainerStyle = {
-    width: "100%",
-    height: 140,
-    overflow: "hidden",
-    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-    position: "relative",
-  };
-
-  const imgStyle = {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  };
-
-  const labelContainerStyle = (n) => ({
-    padding: 16,
-    textAlign: "center",
-    background: n.level === 0 ? "#f8f9fa" : "white",
-    borderTop: `3px solid ${n.level === 0 ? "#667eea" : n.level === 1 ? "#764ba2" : "#f093fb"}`,
-  });
 
   if (!nodes || nodes.length === 0) {
     return (
       <div style={{ 
         padding: 60, 
-        color: "white", 
+        color: "#999", 
         textAlign: "center", 
         fontSize: 18,
         fontWeight: 500,
@@ -66,22 +197,15 @@ function MindMap({ nodes = [] }) {
     );
   }
 
-  // Calculate connection points
   const getConnectionPoints = (parent, child) => {
     const parentRight = parent.x + (parent.level === 0 ? 240 : parent.level === 1 ? 220 : 200);
-    const parentCenterY = parent.y + 70;
+    const parentCenterY = parent.y + 110;
     const childLeft = child.x;
-    const childCenterY = child.y + 70;
+    const childCenterY = child.y + 110;
     
-    return {
-      x1: parentRight,
-      y1: parentCenterY,
-      x2: childLeft,
-      y2: childCenterY,
-    };
+    return { x1: parentRight, y1: parentCenterY, x2: childLeft, y2: childCenterY };
   };
 
-  // Draw curved SVG connections
   const renderConnections = () => {
     const paths = [];
     nodes.forEach((node) => {
@@ -89,37 +213,28 @@ function MindMap({ nodes = [] }) {
         const parent = nodes.find((n) => n.id === node.parentId);
         if (parent) {
           const { x1, y1, x2, y2 } = getConnectionPoints(parent, node);
-          
-          // Create smooth curved path
           const midX = (x1 + x2) / 2;
           const path = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
           
           const strokeColor = node.level === 1 
-            ? "rgba(102, 126, 234, 0.6)" 
+            ? "#667eea" 
             : node.level === 2 
-            ? "rgba(118, 75, 162, 0.5)" 
-            : "rgba(240, 147, 251, 0.4)";
+            ? "#764ba2" 
+            : "#f093fb";
           
           paths.push(
-            <path
-              key={`path-${node.id}`}
-              d={path}
-              stroke={strokeColor}
-              strokeWidth="4"
-              fill="none"
-              strokeLinecap="round"
-            />
-          );
-          
-          // Add decorative dot at connection start
-          paths.push(
-            <circle
-              key={`dot-${node.id}`}
-              cx={x1}
-              cy={y1}
-              r="6"
-              fill={strokeColor}
-            />
+            <g key={`conn-${node.id}`}>
+              <path
+                d={path}
+                stroke={strokeColor}
+                strokeWidth="4"
+                fill="none"
+                strokeLinecap="round"
+                opacity="0.7"
+              />
+              <circle cx={x1} cy={y1} r="7" fill={strokeColor} opacity="0.8" />
+              <circle cx={x2} cy={y2} r="7" fill={strokeColor} opacity="0.8" />
+            </g>
           );
         }
       }
@@ -146,59 +261,13 @@ function MindMap({ nodes = [] }) {
     <div style={containerStyle}>
       {renderConnections()}
       {nodes.map((n) => (
-        <div 
-          key={n.id} 
-          style={nodeBox(n)}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-8px) scale(1.02)";
-            e.currentTarget.style.boxShadow = "0 25px 70px rgba(0,0,0,0.4)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0) scale(1)";
-            e.currentTarget.style.boxShadow = n.level === 0 
-              ? "0 20px 60px rgba(0,0,0,0.3)" 
-              : "0 10px 40px rgba(0,0,0,0.2)";
-          }}
-        >
-          <div style={imgContainerStyle}>
-            {n.image ? (
-              <img src={n.image} alt={n.label} style={imgStyle} />
-            ) : (
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "white",
-                  fontSize: 14,
-                  fontWeight: 600,
-                }}
-              >
-                ⏳ Loading...
-              </div>
-            )}
-          </div>
-          <div style={labelContainerStyle(n)}>
-            <div
-              style={{
-                fontSize: n.level === 0 ? 16 : n.level === 1 ? 15 : 14,
-                fontWeight: n.level === 0 ? 700 : 600,
-                lineHeight: 1.4,
-                color: "#1a1a1a",
-              }}
-            >
-              {n.label}
-            </div>
-          </div>
-        </div>
+        <FlipCard key={n.id} node={n} />
       ))}
     </div>
   );
 }
 
-// Main App Component
+// Main App
 export default function App() {
   const [nodes, setNodes] = useState([]);
   const [textInput, setTextInput] = useState("");
@@ -209,42 +278,27 @@ export default function App() {
   async function fetchImage(query) {
     if (!UNSPLASH_KEY) {
       console.warn("Unsplash API key not found");
-      return null;
+      return `https://source.unsplash.com/400x300/?${encodeURIComponent(query)}`;
     }
 
     try {
-      // Add more specific search terms for better image results
-      const enhancedQuery = `${query} concept illustration`;
+      const enhancedQuery = `${query} illustration`;
       const res = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(
-          enhancedQuery
-        )}&client_id=${UNSPLASH_KEY}&per_page=1&orientation=landscape`
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(enhancedQuery)}&client_id=${UNSPLASH_KEY}&per_page=1&orientation=landscape`,
+        { timeout: 3000 }
       );
       
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
+      if (!res.ok) throw new Error("API error");
       
       const data = await res.json();
       if (data.results?.length > 0) {
-        return data.results[0].urls.regular || data.results[0].urls.small;
+        return data.results[0].urls.small;
       }
       
-      // Fallback: try simpler query
-      const fallbackRes = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(
-          query
-        )}&client_id=${UNSPLASH_KEY}&per_page=1`
-      );
-      const fallbackData = await fallbackRes.json();
-      if (fallbackData.results?.length > 0) {
-        return fallbackData.results[0].urls.small;
-      }
-      
-      return null;
+      return `https://source.unsplash.com/400x300/?${encodeURIComponent(query)}`;
     } catch (err) {
       console.error("Image fetch error:", err);
-      return null;
+      return `https://source.unsplash.com/400x300/?${encodeURIComponent(query)}`;
     }
   }
 
@@ -347,7 +401,6 @@ export default function App() {
     return structure;
   }
 
-  // Optimized horizontal layout
   function layoutNodes(structure) {
     const nodes = [];
     let nodeId = 0;
@@ -380,13 +433,13 @@ export default function App() {
         nodes.push(childNode);
 
         let grandY = childY;
-        const grandX = 700;
+        const grandX = 680;
         const maxGrandchildren = 6;
 
         child.children.slice(0, maxGrandchildren).forEach((grand) => {
           const grandNode = {
             id: `node-${nodeId++}`,
-            label: grand.label.length > 38 ? grand.label.substring(0, 38) + "..." : grand.label,
+            label: grand.label.length > 35 ? grand.label.substring(0, 35) + "..." : grand.label,
             level: 2,
             x: grandX,
             y: grandY,
@@ -394,14 +447,14 @@ export default function App() {
             searchQuery: grand.label,
           };
           nodes.push(grandNode);
-          grandY += 180;
+          grandY += 260;
         });
 
-        const childHeight = Math.max(220, Math.min(child.children.length, maxGrandchildren) * 180);
+        const childHeight = Math.max(260, Math.min(child.children.length, maxGrandchildren) * 260);
         childY += childHeight;
       });
 
-      globalY = Math.max(globalY + 280, childY + 120);
+      globalY = Math.max(globalY + 300, childY + 120);
     });
 
     return nodes;
@@ -409,7 +462,7 @@ export default function App() {
 
   async function generateMindMapFromText() {
     if (!textInput.trim()) {
-      alert("⚠️ Please enter some text to generate a mind map!");
+      alert("⚠️ Please enter text!");
       return;
     }
     
@@ -417,22 +470,24 @@ export default function App() {
     const structure = parseNotes(textInput);
     
     if (structure.length === 0) {
-      alert("⚠️ Could not parse the text. Please check the format.");
+      alert("⚠️ Could not parse text. Check format.");
       setLoading(false);
       return;
     }
     
     const layoutedNodes = layoutNodes(structure);
-    setNodes(layoutedNodes);
 
-    // Fetch images with retry logic
-    const nodesWithImages = await Promise.all(
-      layoutedNodes.map(async (node) => {
-        const image = await fetchImage(node.searchQuery);
-        return { ...node, image };
-      })
-    );
+    // Load images in parallel with timeout
+    const imagePromises = layoutedNodes.map(async (node) => {
+      const image = await Promise.race([
+        fetchImage(node.searchQuery),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000))
+      ]).catch(() => `https://source.unsplash.com/400x300/?${encodeURIComponent(node.searchQuery)}`);
+      
+      return { ...node, image };
+    });
 
+    const nodesWithImages = await Promise.all(imagePromises);
     setNodes(nodesWithImages);
     setLoading(false);
   }
@@ -449,9 +504,9 @@ Problem solving strategies: sub goals, working backward, insight, Heuristics, al
   return (
     <div style={{ 
       minHeight: "100vh",
-      background: "linear-gradient(to bottom, #f8f9fa, #e9ecef)",
+      background: "linear-gradient(to bottom, #f8f9fa, #ffffff)",
       padding: "40px 20px",
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      fontFamily: "'Inter', -apple-system, sans-serif",
     }}>
       <div style={{ maxWidth: 1400, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
@@ -465,13 +520,8 @@ Problem solving strategies: sub goals, working backward, insight, Heuristics, al
           }}>
             🧠 VisualNotes
           </h1>
-          <p style={{ 
-            fontSize: 20, 
-            color: "#6c757d", 
-            fontWeight: 500,
-            marginTop: 0,
-          }}>
-            Transform your notes into stunning visual mind maps
+          <p style={{ fontSize: 20, color: "#6c757d", fontWeight: 500, marginTop: 0 }}>
+            Transform notes into interactive visual mind maps • Click cards to flip!
           </p>
         </div>
 
@@ -482,43 +532,25 @@ Problem solving strategies: sub goals, working backward, insight, Heuristics, al
           boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
           marginBottom: 40,
         }}>
-          <div style={{ marginBottom: 20 }}>
-            <button
-              onClick={() => setTextInput(exampleText)}
-              style={{
-                padding: "12px 24px",
-                fontSize: 15,
-                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                color: "white",
-                border: "none",
-                borderRadius: 12,
-                cursor: "pointer",
-                fontWeight: 600,
-                boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
-                transition: "transform 0.2s ease, box-shadow 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = "translateY(-2px)";
-                e.target.style.boxShadow = "0 6px 20px rgba(102, 126, 234, 0.5)";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = "translateY(0)";
-                e.target.style.boxShadow = "0 4px 15px rgba(102, 126, 234, 0.4)";
-              }}
-            >
-              ✨ Load Example
-            </button>
-          </div>
+          <button
+            onClick={() => setTextInput(exampleText)}
+            style={{
+              padding: "12px 24px",
+              fontSize: 15,
+              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              color: "white",
+              border: "none",
+              borderRadius: 12,
+              cursor: "pointer",
+              fontWeight: 600,
+              marginBottom: 20,
+            }}
+          >
+            ✨ Load Example
+          </button>
 
           <textarea
-            placeholder={`Paste your structured notes here...
-
-Example format:
-Chapter: Your Topic
-Introduction: concept1, concept2, concept3
-Main Area: subtopic1, subtopic2
-1. Section One: detail1, detail2
-2. Section Two: detail1, detail2`}
+            placeholder="Paste structured notes..."
             value={textInput}
             onChange={(e) => setTextInput(e.target.value)}
             style={{
@@ -528,13 +560,9 @@ Main Area: subtopic1, subtopic2
               fontSize: 15,
               border: "2px solid #e9ecef",
               borderRadius: 12,
-              fontFamily: "'Monaco', 'Menlo', monospace",
+              fontFamily: "monospace",
               resize: "vertical",
-              outline: "none",
-              transition: "border-color 0.3s ease",
             }}
-            onFocus={(e) => e.target.style.borderColor = "#667eea"}
-            onBlur={(e) => e.target.style.borderColor = "#e9ecef"}
           />
 
           <button
@@ -544,23 +572,13 @@ Main Area: subtopic1, subtopic2
               marginTop: 20,
               padding: "16px 40px",
               fontSize: 18,
-              background: loading 
-                ? "#adb5bd" 
-                : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              background: loading ? "#adb5bd" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
               color: "white",
               border: "none",
               borderRadius: 12,
               cursor: loading ? "not-allowed" : "pointer",
               fontWeight: 700,
               width: "100%",
-              boxShadow: loading ? "none" : "0 8px 25px rgba(102, 126, 234, 0.4)",
-              transition: "transform 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) e.target.style.transform = "translateY(-2px)";
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.transform = "translateY(0)";
             }}
           >
             {loading ? "🔄 Generating..." : "🚀 Generate Mind Map"}
@@ -569,37 +587,9 @@ Main Area: subtopic1, subtopic2
 
         {nodes.length > 0 && (
           <div>
-            <div style={{ 
-              display: "flex", 
-              alignItems: "center", 
-              justifyContent: "space-between",
-              marginBottom: 20,
-              flexWrap: "wrap",
-              gap: 15,
-            }}>
-              <h2 style={{ 
-                fontSize: 28, 
-                fontWeight: 700,
-                color: "#212529",
-                margin: 0,
-              }}>
-                Your Visual Mind Map ✨
-              </h2>
-              <div style={{ display: "flex", gap: 20, fontSize: 14, flexWrap: "wrap" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
-                  <div style={{ width: 20, height: 20, background: "linear-gradient(135deg, #667eea, #764ba2)", borderRadius: 6 }}></div>
-                  Main Topics
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
-                  <div style={{ width: 20, height: 20, background: "linear-gradient(135deg, #764ba2, #f093fb)", borderRadius: 6 }}></div>
-                  Subtopics
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
-                  <div style={{ width: 20, height: 20, background: "linear-gradient(135deg, #f093fb, #f5576c)", borderRadius: 6 }}></div>
-                  Details
-                </span>
-              </div>
-            </div>
+            <h2 style={{ fontSize: 28, fontWeight: 700, marginBottom: 20 }}>
+              Your Interactive Mind Map ✨
+            </h2>
             <MindMap nodes={nodes} />
           </div>
         )}
