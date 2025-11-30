@@ -1,75 +1,124 @@
 import { useState } from "react";
 
-// MindMap Component with proper connections
+// Modern MindMap Component with curved connections
 function MindMap({ nodes = [] }) {
   const containerStyle = {
     position: "relative",
     width: "100%",
-    minHeight: 1200,
-    border: "2px solid #ddd",
+    minHeight: 1000,
+    border: "none",
     overflow: "auto",
-    background: "#fafafa",
-    borderRadius: 8,
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    borderRadius: 16,
+    padding: 40,
   };
 
   const nodeBox = (n) => ({
     position: "absolute",
     left: n.x,
     top: n.y,
-    width: n.level === 0 ? 220 : n.level === 1 ? 200 : 180,
-    padding: 10,
+    width: n.level === 0 ? 240 : n.level === 1 ? 220 : 200,
+    padding: 0,
     boxSizing: "border-box",
-    textAlign: "center",
-    background: n.level === 0 ? "#e3f2fd" : n.level === 1 ? "#fff3e0" : "#f1f8e9",
-    border: `3px solid ${n.level === 0 ? "#1976d2" : n.level === 1 ? "#f57c00" : "#689f38"}`,
-    borderRadius: 10,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-    zIndex: 10,
+    background: "white",
+    borderRadius: 16,
+    boxShadow: n.level === 0 
+      ? "0 20px 60px rgba(0,0,0,0.3)" 
+      : "0 10px 40px rgba(0,0,0,0.2)",
+    overflow: "hidden",
+    zIndex: 100,
+    transition: "transform 0.3s ease, box-shadow 0.3s ease",
+    cursor: "pointer",
   });
+
+  const imgContainerStyle = {
+    width: "100%",
+    height: 140,
+    overflow: "hidden",
+    background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    position: "relative",
+  };
 
   const imgStyle = {
     width: "100%",
-    height: 120,
+    height: "100%",
     objectFit: "cover",
-    borderRadius: 8,
-    marginBottom: 10,
-    background: "#e0e0e0",
   };
+
+  const labelContainerStyle = (n) => ({
+    padding: 16,
+    textAlign: "center",
+    background: n.level === 0 ? "#f8f9fa" : "white",
+    borderTop: `3px solid ${n.level === 0 ? "#667eea" : n.level === 1 ? "#764ba2" : "#f093fb"}`,
+  });
 
   if (!nodes || nodes.length === 0) {
     return (
-      <div style={{ padding: 40, color: "#666", textAlign: "center", fontSize: 16 }}>
-        No nodes yet — paste your structured notes and generate a mind map.
+      <div style={{ 
+        padding: 60, 
+        color: "white", 
+        textAlign: "center", 
+        fontSize: 18,
+        fontWeight: 500,
+      }}>
+        No mind map yet — paste your notes and click generate! ✨
       </div>
     );
   }
 
-  // Calculate node centers for connection lines
-  const getNodeCenter = (node) => ({
-    x: node.x + (node.level === 0 ? 110 : node.level === 1 ? 100 : 90),
-    y: node.y + 80,
-  });
+  // Calculate connection points
+  const getConnectionPoints = (parent, child) => {
+    const parentRight = parent.x + (parent.level === 0 ? 240 : parent.level === 1 ? 220 : 200);
+    const parentCenterY = parent.y + 70;
+    const childLeft = child.x;
+    const childCenterY = child.y + 70;
+    
+    return {
+      x1: parentRight,
+      y1: parentCenterY,
+      x2: childLeft,
+      y2: childCenterY,
+    };
+  };
 
-  // Draw SVG connections between parent and children
+  // Draw curved SVG connections
   const renderConnections = () => {
-    const lines = [];
+    const paths = [];
     nodes.forEach((node) => {
       if (node.parentId) {
         const parent = nodes.find((n) => n.id === node.parentId);
         if (parent) {
-          const parentCenter = getNodeCenter(parent);
-          const childCenter = getNodeCenter(node);
+          const { x1, y1, x2, y2 } = getConnectionPoints(parent, node);
           
-          lines.push(
-            <line
-              key={`line-${node.id}`}
-              x1={parentCenter.x}
-              y1={parentCenter.y}
-              x2={childCenter.x}
-              y2={childCenter.y}
-              stroke={node.level === 1 ? "#1976d2" : node.level === 2 ? "#f57c00" : "#689f38"}
-              strokeWidth="3"
-              opacity="0.6"
+          // Create smooth curved path
+          const midX = (x1 + x2) / 2;
+          const path = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+          
+          const strokeColor = node.level === 1 
+            ? "rgba(102, 126, 234, 0.6)" 
+            : node.level === 2 
+            ? "rgba(118, 75, 162, 0.5)" 
+            : "rgba(240, 147, 251, 0.4)";
+          
+          paths.push(
+            <path
+              key={`path-${node.id}`}
+              d={path}
+              stroke={strokeColor}
+              strokeWidth="4"
+              fill="none"
+              strokeLinecap="round"
+            />
+          );
+          
+          // Add decorative dot at connection start
+          paths.push(
+            <circle
+              key={`dot-${node.id}`}
+              cx={x1}
+              cy={y1}
+              r="6"
+              fill={strokeColor}
             />
           );
         }
@@ -88,7 +137,7 @@ function MindMap({ nodes = [] }) {
           zIndex: 1,
         }}
       >
-        {lines}
+        {paths}
       </svg>
     );
   };
@@ -97,33 +146,51 @@ function MindMap({ nodes = [] }) {
     <div style={containerStyle}>
       {renderConnections()}
       {nodes.map((n) => (
-        <div key={n.id} style={nodeBox(n)}>
-          {n.image ? (
-            <img src={n.image} alt={n.label} style={imgStyle} />
-          ) : (
+        <div 
+          key={n.id} 
+          style={nodeBox(n)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-8px) scale(1.02)";
+            e.currentTarget.style.boxShadow = "0 25px 70px rgba(0,0,0,0.4)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0) scale(1)";
+            e.currentTarget.style.boxShadow = n.level === 0 
+              ? "0 20px 60px rgba(0,0,0,0.3)" 
+              : "0 10px 40px rgba(0,0,0,0.2)";
+          }}
+        >
+          <div style={imgContainerStyle}>
+            {n.image ? (
+              <img src={n.image} alt={n.label} style={imgStyle} />
+            ) : (
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  fontSize: 14,
+                  fontWeight: 600,
+                }}
+              >
+                ⏳ Loading...
+              </div>
+            )}
+          </div>
+          <div style={labelContainerStyle(n)}>
             <div
               style={{
-                ...imgStyle,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#999",
-                fontSize: 13,
-                fontWeight: 500,
+                fontSize: n.level === 0 ? 16 : n.level === 1 ? 15 : 14,
+                fontWeight: n.level === 0 ? 700 : 600,
+                lineHeight: 1.4,
+                color: "#1a1a1a",
               }}
             >
-              Loading...
+              {n.label}
             </div>
-          )}
-          <div
-            style={{
-              fontSize: n.level === 0 ? 16 : n.level === 1 ? 14 : 13,
-              fontWeight: n.level === 0 ? 700 : n.level === 1 ? 600 : 500,
-              lineHeight: 1.4,
-              color: "#333",
-            }}
-          >
-            {n.label}
           </div>
         </div>
       ))}
@@ -140,16 +207,40 @@ export default function App() {
   const UNSPLASH_KEY = import.meta.env.VITE_REACT_APP_UNSPLASH_KEY;
 
   async function fetchImage(query) {
+    if (!UNSPLASH_KEY) {
+      console.warn("Unsplash API key not found");
+      return null;
+    }
+
     try {
+      // Add more specific search terms for better image results
+      const enhancedQuery = `${query} concept illustration`;
       const res = await fetch(
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(
+          enhancedQuery
+        )}&client_id=${UNSPLASH_KEY}&per_page=1&orientation=landscape`
+      );
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      if (data.results?.length > 0) {
+        return data.results[0].urls.regular || data.results[0].urls.small;
+      }
+      
+      // Fallback: try simpler query
+      const fallbackRes = await fetch(
         `https://api.unsplash.com/search/photos?query=${encodeURIComponent(
           query
         )}&client_id=${UNSPLASH_KEY}&per_page=1`
       );
-      const data = await res.json();
-      if (data.results?.length > 0) {
-        return data.results[0].urls.small;
+      const fallbackData = await fallbackRes.json();
+      if (fallbackData.results?.length > 0) {
+        return fallbackData.results[0].urls.small;
       }
+      
       return null;
     } catch (err) {
       console.error("Image fetch error:", err);
@@ -157,14 +248,12 @@ export default function App() {
     }
   }
 
-  // Enhanced parsing function
   function parseNotes(text) {
     const lines = text.split("\n").filter((l) => l.trim() !== "");
     const structure = [];
     let currentParent = null;
     let currentChild = null;
 
-    // Handle single line with commas
     if (lines.length === 1 && lines[0].includes(",")) {
       const items = lines[0].split(",").map(s => s.trim()).filter(s => s.length > 0);
       items.forEach(item => {
@@ -176,7 +265,6 @@ export default function App() {
     for (let line of lines) {
       const trimmed = line.trim();
       
-      // Main chapter/section (contains ":")
       if (trimmed.includes(":") && !trimmed.startsWith("-") && !trimmed.match(/^\d+\./)) {
         const parts = trimmed.split(":");
         const title = parts[0].trim();
@@ -184,7 +272,6 @@ export default function App() {
         structure.push(currentParent);
         currentChild = null;
         
-        // Parse items after colon
         if (parts[1] && parts[1].trim()) {
           const items = parts[1].split(/[,;]/).map(s => s.trim()).filter(s => s.length > 2);
           items.forEach(item => {
@@ -200,7 +287,6 @@ export default function App() {
           });
         }
       }
-      // Numbered items (1., 2., 3.)
       else if (trimmed.match(/^\d+\./)) {
         const content = trimmed.replace(/^\d+\.\s*/, "");
         const parts = content.split(":");
@@ -209,7 +295,6 @@ export default function App() {
         currentChild = { label, children: [], level: 1, parent: currentParent };
         if (currentParent) currentParent.children.push(currentChild);
         
-        // Parse items after colon in numbered item
         if (parts[1] && parts[1].trim()) {
           const items = parts[1].split(/[,;]/).map(s => s.trim()).filter(s => s.length > 2);
           items.forEach(item => {
@@ -225,7 +310,6 @@ export default function App() {
           });
         }
       }
-      // Sub-items (contain commas or semicolons)
       else if ((trimmed.includes(",") || trimmed.includes(";")) && !trimmed.includes(":")) {
         const terms = trimmed.split(/[,;]/).map(t => t.trim()).filter(t => t.length > 2);
         terms.forEach(term => {
@@ -245,7 +329,6 @@ export default function App() {
           }
         });
       }
-      // Simple items
       else if (trimmed.length > 2) {
         const item = { 
           label: trimmed, 
@@ -264,25 +347,25 @@ export default function App() {
     return structure;
   }
 
-  // Layout nodes in proper mind map structure
+  // Optimized horizontal layout
   function layoutNodes(structure) {
     const nodes = [];
     let nodeId = 0;
-    let globalY = 50;
+    let globalY = 60;
 
     structure.forEach((parent) => {
       const parentNode = {
         id: `node-${nodeId++}`,
         label: parent.label,
         level: 0,
-        x: 50,
+        x: 60,
         y: globalY,
         searchQuery: parent.label,
       };
       nodes.push(parentNode);
 
       let childY = globalY;
-      const childX = 320;
+      const childX = 380;
 
       parent.children.forEach((child) => {
         const childNode = {
@@ -296,15 +379,14 @@ export default function App() {
         };
         nodes.push(childNode);
 
-        // Position grandchildren
         let grandY = childY;
-        const grandX = childX + 260;
-        const maxGrandchildren = 8;
+        const grandX = 700;
+        const maxGrandchildren = 6;
 
         child.children.slice(0, maxGrandchildren).forEach((grand) => {
           const grandNode = {
             id: `node-${nodeId++}`,
-            label: grand.label.length > 40 ? grand.label.substring(0, 40) + "..." : grand.label,
+            label: grand.label.length > 38 ? grand.label.substring(0, 38) + "..." : grand.label,
             level: 2,
             x: grandX,
             y: grandY,
@@ -312,14 +394,14 @@ export default function App() {
             searchQuery: grand.label,
           };
           nodes.push(grandNode);
-          grandY += 160;
+          grandY += 180;
         });
 
-        const childHeight = Math.max(200, Math.min(child.children.length, maxGrandchildren) * 160);
+        const childHeight = Math.max(220, Math.min(child.children.length, maxGrandchildren) * 180);
         childY += childHeight;
       });
 
-      globalY = Math.max(globalY + 250, childY + 100);
+      globalY = Math.max(globalY + 280, childY + 120);
     });
 
     return nodes;
@@ -327,7 +409,7 @@ export default function App() {
 
   async function generateMindMapFromText() {
     if (!textInput.trim()) {
-      alert("Please enter text to generate a mind map!");
+      alert("⚠️ Please enter some text to generate a mind map!");
       return;
     }
     
@@ -335,17 +417,15 @@ export default function App() {
     const structure = parseNotes(textInput);
     
     if (structure.length === 0) {
-      alert("Could not parse the text. Please check the format and try again.");
+      alert("⚠️ Could not parse the text. Please check the format.");
       setLoading(false);
       return;
     }
     
     const layoutedNodes = layoutNodes(structure);
-
-    // Set nodes first without images
     setNodes(layoutedNodes);
 
-    // Fetch images asynchronously
+    // Fetch images with retry logic
     const nodesWithImages = await Promise.all(
       layoutedNodes.map(async (node) => {
         const image = await fetchImage(node.searchQuery);
@@ -367,95 +447,163 @@ Mental structures: Concepts, schemas, mental imagery
 Problem solving strategies: sub goals, working backward, insight, Heuristics, algorithm, trial and error`;
 
   return (
-    <div style={{ padding: 20, fontFamily: "system-ui, -apple-system, sans-serif", maxWidth: "100%" }}>
-      <h1 style={{ color: "#1976d2", marginBottom: 10 }}>🧠 VisualNotes – Image Mind Map Generator</h1>
-      <p style={{ color: "#666", marginBottom: 20 }}>
-        Paste your structured notes below and generate an interactive visual mind map with images from Unsplash
-      </p>
-
-      <div style={{ marginBottom: 15 }}>
-        <button
-          onClick={() => setTextInput(exampleText)}
-          style={{
-            padding: "8px 16px",
-            fontSize: 14,
-            background: "#f5f5f5",
-            color: "#333",
-            border: "1px solid #ddd",
-            borderRadius: 6,
-            cursor: "pointer",
+    <div style={{ 
+      minHeight: "100vh",
+      background: "linear-gradient(to bottom, #f8f9fa, #e9ecef)",
+      padding: "40px 20px",
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <h1 style={{ 
+            fontSize: 48, 
+            fontWeight: 800,
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            marginBottom: 12,
+          }}>
+            🧠 VisualNotes
+          </h1>
+          <p style={{ 
+            fontSize: 20, 
+            color: "#6c757d", 
             fontWeight: 500,
-          }}
-        >
-          📝 Load Example (Thinking)
-        </button>
-      </div>
-
-      <textarea
-        placeholder={`Paste structured notes in this format:
-
-Chapter: Topic Name
-Introduction to Topic: concept1, concept2, concept3
-Main Area 1: subtopic1, subtopic2, subtopic3
-1. Section One: detail1, detail2, detail3
-2. Section Two: detail1, detail2, detail3
-3. Section Three: detail1, detail2, detail3
-Key strategies: item1, item2, item3, item4`}
-        value={textInput}
-        onChange={(e) => setTextInput(e.target.value)}
-        style={{
-          width: "100%",
-          height: 240,
-          padding: 12,
-          fontSize: 14,
-          border: "2px solid #ddd",
-          borderRadius: 8,
-          fontFamily: "monospace",
-          resize: "vertical",
-        }}
-      />
-
-      <button
-        onClick={generateMindMapFromText}
-        disabled={loading}
-        style={{
-          marginTop: 15,
-          padding: "14px 28px",
-          fontSize: 16,
-          background: loading ? "#ccc" : "#1976d2",
-          color: "white",
-          border: "none",
-          borderRadius: 8,
-          cursor: loading ? "not-allowed" : "pointer",
-          fontWeight: 600,
-          boxShadow: loading ? "none" : "0 2px 8px rgba(25, 118, 210, 0.3)",
-        }}
-      >
-        {loading ? "🔄 Generating Mind Map..." : "🚀 Generate Mind Map"}
-      </button>
-
-      {nodes.length > 0 && (
-        <div style={{ marginTop: 30 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 15, flexWrap: "wrap" }}>
-            <h2 style={{ color: "#333", fontSize: 20, margin: 0 }}>Your Visual Mind Map</h2>
-            <div style={{ display: "flex", gap: 15, fontSize: 13, flexWrap: "wrap" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 16, height: 16, background: "#e3f2fd", border: "2px solid #1976d2", borderRadius: 3 }}></div>
-                Main Topics
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 16, height: 16, background: "#fff3e0", border: "2px solid #f57c00", borderRadius: 3 }}></div>
-                Subtopics
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{ width: 16, height: 16, background: "#f1f8e9", border: "2px solid #689f38", borderRadius: 3 }}></div>
-                Details
-              </span>
-            </div>
-          </div>
-          <MindMap nodes={nodes} />
+            marginTop: 0,
+          }}>
+            Transform your notes into stunning visual mind maps
+          </p>
         </div>
-      )}
+
+        <div style={{ 
+          background: "white", 
+          borderRadius: 20, 
+          padding: 32,
+          boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
+          marginBottom: 40,
+        }}>
+          <div style={{ marginBottom: 20 }}>
+            <button
+              onClick={() => setTextInput(exampleText)}
+              style={{
+                padding: "12px 24px",
+                fontSize: 15,
+                background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                color: "white",
+                border: "none",
+                borderRadius: 12,
+                cursor: "pointer",
+                fontWeight: 600,
+                boxShadow: "0 4px 15px rgba(102, 126, 234, 0.4)",
+                transition: "transform 0.2s ease, box-shadow 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = "translateY(-2px)";
+                e.target.style.boxShadow = "0 6px 20px rgba(102, 126, 234, 0.5)";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = "translateY(0)";
+                e.target.style.boxShadow = "0 4px 15px rgba(102, 126, 234, 0.4)";
+              }}
+            >
+              ✨ Load Example
+            </button>
+          </div>
+
+          <textarea
+            placeholder={`Paste your structured notes here...
+
+Example format:
+Chapter: Your Topic
+Introduction: concept1, concept2, concept3
+Main Area: subtopic1, subtopic2
+1. Section One: detail1, detail2
+2. Section Two: detail1, detail2`}
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+            style={{
+              width: "100%",
+              height: 200,
+              padding: 16,
+              fontSize: 15,
+              border: "2px solid #e9ecef",
+              borderRadius: 12,
+              fontFamily: "'Monaco', 'Menlo', monospace",
+              resize: "vertical",
+              outline: "none",
+              transition: "border-color 0.3s ease",
+            }}
+            onFocus={(e) => e.target.style.borderColor = "#667eea"}
+            onBlur={(e) => e.target.style.borderColor = "#e9ecef"}
+          />
+
+          <button
+            onClick={generateMindMapFromText}
+            disabled={loading}
+            style={{
+              marginTop: 20,
+              padding: "16px 40px",
+              fontSize: 18,
+              background: loading 
+                ? "#adb5bd" 
+                : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+              color: "white",
+              border: "none",
+              borderRadius: 12,
+              cursor: loading ? "not-allowed" : "pointer",
+              fontWeight: 700,
+              width: "100%",
+              boxShadow: loading ? "none" : "0 8px 25px rgba(102, 126, 234, 0.4)",
+              transition: "transform 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) e.target.style.transform = "translateY(-2px)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = "translateY(0)";
+            }}
+          >
+            {loading ? "🔄 Generating..." : "🚀 Generate Mind Map"}
+          </button>
+        </div>
+
+        {nodes.length > 0 && (
+          <div>
+            <div style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "space-between",
+              marginBottom: 20,
+              flexWrap: "wrap",
+              gap: 15,
+            }}>
+              <h2 style={{ 
+                fontSize: 28, 
+                fontWeight: 700,
+                color: "#212529",
+                margin: 0,
+              }}>
+                Your Visual Mind Map ✨
+              </h2>
+              <div style={{ display: "flex", gap: 20, fontSize: 14, flexWrap: "wrap" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
+                  <div style={{ width: 20, height: 20, background: "linear-gradient(135deg, #667eea, #764ba2)", borderRadius: 6 }}></div>
+                  Main Topics
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
+                  <div style={{ width: 20, height: 20, background: "linear-gradient(135deg, #764ba2, #f093fb)", borderRadius: 6 }}></div>
+                  Subtopics
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
+                  <div style={{ width: 20, height: 20, background: "linear-gradient(135deg, #f093fb, #f5576c)", borderRadius: 6 }}></div>
+                  Details
+                </span>
+              </div>
+            </div>
+            <MindMap nodes={nodes} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
