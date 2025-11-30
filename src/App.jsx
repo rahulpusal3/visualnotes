@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 // Flipable Card Component
-function FlipCard({ node, onFlip }) {
+function FlipCard({ node }) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [aiInfo, setAiInfo] = useState("");
   const [loadingInfo, setLoadingInfo] = useState(false);
@@ -9,7 +9,6 @@ function FlipCard({ node, onFlip }) {
   const handleFlip = async () => {
     if (!isFlipped && !aiInfo) {
       setLoadingInfo(true);
-      // Generate AI facts
       try {
         const response = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
@@ -31,10 +30,10 @@ function FlipCard({ node, onFlip }) {
         if (data.content?.[0]?.text) {
           setAiInfo(data.content[0].text);
         } else {
-          setAiInfo(`${node.label}: Key concept in understanding this topic. Click to explore more connections in the mind map.`);
+          setAiInfo(`${node.label}: A key concept worth exploring further in this topic.`);
         }
       } catch (err) {
-        setAiInfo(`${node.label}: An important concept worth exploring further. Connect with related ideas to deepen understanding.`);
+        setAiInfo(`${node.label}: An important concept in understanding this subject matter.`);
       }
       setLoadingInfo(false);
     }
@@ -46,7 +45,7 @@ function FlipCard({ node, onFlip }) {
     left: node.x,
     top: node.y,
     width: node.level === 0 ? 240 : node.level === 1 ? 220 : 200,
-    height: 220,
+    height: 240,
     perspective: "1000px",
     zIndex: 100,
     cursor: "pointer",
@@ -68,7 +67,7 @@ function FlipCard({ node, onFlip }) {
     backfaceVisibility: "hidden",
     borderRadius: 16,
     overflow: "hidden",
-    boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
+    boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
   };
 
   const frontStyle = {
@@ -91,22 +90,35 @@ function FlipCard({ node, onFlip }) {
   return (
     <div style={cardStyle} onClick={handleFlip}>
       <div style={cardInnerStyle}>
-        {/* Front */}
+        {/* Front of card */}
         <div style={frontStyle}>
+          {node.image ? (
+            <img 
+              src={node.image} 
+              alt={node.label}
+              style={{
+                width: "100%",
+                height: 160,
+                objectFit: "cover",
+              }}
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+          ) : null}
           <div style={{
             width: "100%",
-            height: 140,
-            background: node.image 
-              ? `url(${node.image}) center/cover` 
-              : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            display: "flex",
+            height: 160,
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            display: node.image ? "none" : "flex",
             alignItems: "center",
             justifyContent: "center",
             color: "white",
             fontSize: 14,
             fontWeight: 600,
           }}>
-            {!node.image && "⏳"}
+            {node.imageLoading ? "⏳ Loading..." : "📷"}
           </div>
           <div style={{
             padding: 16,
@@ -132,7 +144,7 @@ function FlipCard({ node, onFlip }) {
           </div>
         </div>
 
-        {/* Back */}
+        {/* Back of card */}
         <div style={backStyle}>
           {loadingInfo ? (
             <div>⏳ Loading facts...</div>
@@ -169,7 +181,7 @@ function FlipCard({ node, onFlip }) {
   );
 }
 
-// Modern MindMap Component
+// MindMap Component
 function MindMap({ nodes = [] }) {
   const containerStyle = {
     position: "relative",
@@ -199,9 +211,9 @@ function MindMap({ nodes = [] }) {
 
   const getConnectionPoints = (parent, child) => {
     const parentRight = parent.x + (parent.level === 0 ? 240 : parent.level === 1 ? 220 : 200);
-    const parentCenterY = parent.y + 110;
+    const parentCenterY = parent.y + 120;
     const childLeft = child.x;
-    const childCenterY = child.y + 110;
+    const childCenterY = child.y + 120;
     
     return { x1: parentRight, y1: parentCenterY, x2: childLeft, y2: childCenterY };
   };
@@ -216,22 +228,11 @@ function MindMap({ nodes = [] }) {
           const midX = (x1 + x2) / 2;
           const path = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
           
-          const strokeColor = node.level === 1 
-            ? "#667eea" 
-            : node.level === 2 
-            ? "#764ba2" 
-            : "#f093fb";
+          const strokeColor = node.level === 1 ? "#667eea" : node.level === 2 ? "#764ba2" : "#f093fb";
           
           paths.push(
             <g key={`conn-${node.id}`}>
-              <path
-                d={path}
-                stroke={strokeColor}
-                strokeWidth="4"
-                fill="none"
-                strokeLinecap="round"
-                opacity="0.7"
-              />
+              <path d={path} stroke={strokeColor} strokeWidth="4" fill="none" strokeLinecap="round" opacity="0.7" />
               <circle cx={x1} cy={y1} r="7" fill={strokeColor} opacity="0.8" />
               <circle cx={x2} cy={y2} r="7" fill={strokeColor} opacity="0.8" />
             </g>
@@ -241,17 +242,7 @@ function MindMap({ nodes = [] }) {
     });
 
     return (
-      <svg
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          pointerEvents: "none",
-          zIndex: 1,
-        }}
-      >
+      <svg style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 1 }}>
         {paths}
       </svg>
     );
@@ -260,9 +251,7 @@ function MindMap({ nodes = [] }) {
   return (
     <div style={containerStyle}>
       {renderConnections()}
-      {nodes.map((n) => (
-        <FlipCard key={n.id} node={n} />
-      ))}
+      {nodes.map((n) => <FlipCard key={n.id} node={n} />)}
     </div>
   );
 }
@@ -276,30 +265,40 @@ export default function App() {
   const UNSPLASH_KEY = import.meta.env.VITE_REACT_APP_UNSPLASH_KEY;
 
   async function fetchImage(query) {
-    if (!UNSPLASH_KEY) {
-      console.warn("Unsplash API key not found");
-      return `https://source.unsplash.com/400x300/?${encodeURIComponent(query)}`;
-    }
+    const searches = [
+      query,
+      `${query} concept`,
+      `${query} illustration`,
+      query.split(' ')[0]
+    ];
 
-    try {
-      const enhancedQuery = `${query} illustration`;
-      const res = await fetch(
-        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(enhancedQuery)}&client_id=${UNSPLASH_KEY}&per_page=1&orientation=landscape`,
-        { timeout: 3000 }
-      );
-      
-      if (!res.ok) throw new Error("API error");
-      
-      const data = await res.json();
-      if (data.results?.length > 0) {
-        return data.results[0].urls.small;
+    for (let searchQuery of searches) {
+      try {
+        if (UNSPLASH_KEY) {
+          const res = await fetch(
+            `https://api.unsplash.com/search/photos?query=${encodeURIComponent(searchQuery)}&client_id=${UNSPLASH_KEY}&per_page=1&orientation=landscape`
+          );
+          
+          if (res.ok) {
+            const data = await res.json();
+            if (data.results?.length > 0) {
+              return data.results[0].urls.small;
+            }
+          }
+        }
+        
+        // Fallback to Unsplash Source
+        const sourceUrl = `https://source.unsplash.com/400x300/?${encodeURIComponent(searchQuery)}`;
+        const testRes = await fetch(sourceUrl, { method: 'HEAD' });
+        if (testRes.ok) return sourceUrl;
+        
+      } catch (err) {
+        console.log(`Failed ${searchQuery}, trying next...`);
       }
-      
-      return `https://source.unsplash.com/400x300/?${encodeURIComponent(query)}`;
-    } catch (err) {
-      console.error("Image fetch error:", err);
-      return `https://source.unsplash.com/400x300/?${encodeURIComponent(query)}`;
     }
+    
+    // Ultimate fallback
+    return `https://source.unsplash.com/400x300/?abstract,concept`;
   }
 
   function parseNotes(text) {
@@ -331,12 +330,7 @@ export default function App() {
           items.forEach(item => {
             const cleanItem = item.replace(/^(and|or)\s+/i, "");
             if (cleanItem.length > 2) {
-              currentParent.children.push({ 
-                label: cleanItem, 
-                children: [], 
-                level: 1, 
-                parent: currentParent 
-              });
+              currentParent.children.push({ label: cleanItem, children: [], level: 1, parent: currentParent });
             }
           });
         }
@@ -354,12 +348,7 @@ export default function App() {
           items.forEach(item => {
             const cleanItem = item.replace(/^(and|or)\s+/i, "");
             if (cleanItem.length > 2) {
-              currentChild.children.push({ 
-                label: cleanItem, 
-                children: [], 
-                level: 2, 
-                parent: currentChild 
-              });
+              currentChild.children.push({ label: cleanItem, children: [], level: 2, parent: currentChild });
             }
           });
         }
@@ -369,12 +358,7 @@ export default function App() {
         terms.forEach(term => {
           const cleanTerm = term.replace(/^(and|or)\s+/i, "");
           if (cleanTerm.length > 2) {
-            const item = { 
-              label: cleanTerm, 
-              children: [], 
-              level: 2, 
-              parent: currentChild || currentParent 
-            };
+            const item = { label: cleanTerm, children: [], level: 2, parent: currentChild || currentParent };
             if (currentChild) {
               currentChild.children.push(item);
             } else if (currentParent) {
@@ -384,12 +368,7 @@ export default function App() {
         });
       }
       else if (trimmed.length > 2) {
-        const item = { 
-          label: trimmed, 
-          children: [], 
-          level: currentChild ? 2 : 1, 
-          parent: currentChild || currentParent 
-        };
+        const item = { label: trimmed, children: [], level: currentChild ? 2 : 1, parent: currentChild || currentParent };
         if (currentChild) {
           currentChild.children.push(item);
         } else if (currentParent) {
@@ -414,6 +393,7 @@ export default function App() {
         x: 60,
         y: globalY,
         searchQuery: parent.label,
+        imageLoading: true,
       };
       nodes.push(parentNode);
 
@@ -429,6 +409,7 @@ export default function App() {
           y: childY,
           parentId: parentNode.id,
           searchQuery: child.label,
+          imageLoading: true,
         };
         nodes.push(childNode);
 
@@ -445,16 +426,17 @@ export default function App() {
             y: grandY,
             parentId: childNode.id,
             searchQuery: grand.label,
+            imageLoading: true,
           };
           nodes.push(grandNode);
-          grandY += 260;
+          grandY += 280;
         });
 
-        const childHeight = Math.max(260, Math.min(child.children.length, maxGrandchildren) * 260);
+        const childHeight = Math.max(280, Math.min(child.children.length, maxGrandchildren) * 280);
         childY += childHeight;
       });
 
-      globalY = Math.max(globalY + 300, childY + 120);
+      globalY = Math.max(globalY + 320, childY + 120);
     });
 
     return nodes;
@@ -470,25 +452,23 @@ export default function App() {
     const structure = parseNotes(textInput);
     
     if (structure.length === 0) {
-      alert("⚠️ Could not parse text. Check format.");
+      alert("⚠️ Could not parse text.");
       setLoading(false);
       return;
     }
     
     const layoutedNodes = layoutNodes(structure);
+    setNodes(layoutedNodes);
 
-    // Load images in parallel with timeout
-    const imagePromises = layoutedNodes.map(async (node) => {
-      const image = await Promise.race([
-        fetchImage(node.searchQuery),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000))
-      ]).catch(() => `https://source.unsplash.com/400x300/?${encodeURIComponent(node.searchQuery)}`);
-      
-      return { ...node, image };
-    });
+    // Fetch images sequentially to avoid rate limits
+    for (let i = 0; i < layoutedNodes.length; i++) {
+      const node = layoutedNodes[i];
+      const image = await fetchImage(node.searchQuery);
+      layoutedNodes[i] = { ...node, image, imageLoading: false };
+      setNodes([...layoutedNodes]);
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
 
-    const nodesWithImages = await Promise.all(imagePromises);
-    setNodes(nodesWithImages);
     setLoading(false);
   }
 
@@ -502,22 +482,10 @@ Mental structures: Concepts, schemas, mental imagery
 Problem solving strategies: sub goals, working backward, insight, Heuristics, algorithm, trial and error`;
 
   return (
-    <div style={{ 
-      minHeight: "100vh",
-      background: "linear-gradient(to bottom, #f8f9fa, #ffffff)",
-      padding: "40px 20px",
-      fontFamily: "'Inter', -apple-system, sans-serif",
-    }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(to bottom, #f8f9fa, #ffffff)", padding: "40px 20px", fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <div style={{ maxWidth: 1400, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <h1 style={{ 
-            fontSize: 48, 
-            fontWeight: 800,
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            marginBottom: 12,
-          }}>
+          <h1 style={{ fontSize: 48, fontWeight: 800, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 12 }}>
             🧠 VisualNotes
           </h1>
           <p style={{ fontSize: 20, color: "#6c757d", fontWeight: 500, marginTop: 0 }}>
@@ -525,71 +493,21 @@ Problem solving strategies: sub goals, working backward, insight, Heuristics, al
           </p>
         </div>
 
-        <div style={{ 
-          background: "white", 
-          borderRadius: 20, 
-          padding: 32,
-          boxShadow: "0 10px 40px rgba(0,0,0,0.1)",
-          marginBottom: 40,
-        }}>
-          <button
-            onClick={() => setTextInput(exampleText)}
-            style={{
-              padding: "12px 24px",
-              fontSize: 15,
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              color: "white",
-              border: "none",
-              borderRadius: 12,
-              cursor: "pointer",
-              fontWeight: 600,
-              marginBottom: 20,
-            }}
-          >
+        <div style={{ background: "white", borderRadius: 20, padding: 32, boxShadow: "0 10px 40px rgba(0,0,0,0.1)", marginBottom: 40 }}>
+          <button onClick={() => setTextInput(exampleText)} style={{ padding: "12px 24px", fontSize: 15, background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "white", border: "none", borderRadius: 12, cursor: "pointer", fontWeight: 600, marginBottom: 20 }}>
             ✨ Load Example
           </button>
 
-          <textarea
-            placeholder="Paste structured notes..."
-            value={textInput}
-            onChange={(e) => setTextInput(e.target.value)}
-            style={{
-              width: "100%",
-              height: 200,
-              padding: 16,
-              fontSize: 15,
-              border: "2px solid #e9ecef",
-              borderRadius: 12,
-              fontFamily: "monospace",
-              resize: "vertical",
-            }}
-          />
+          <textarea placeholder="Paste structured notes..." value={textInput} onChange={(e) => setTextInput(e.target.value)} style={{ width: "100%", height: 200, padding: 16, fontSize: 15, border: "2px solid #e9ecef", borderRadius: 12, fontFamily: "monospace", resize: "vertical" }} />
 
-          <button
-            onClick={generateMindMapFromText}
-            disabled={loading}
-            style={{
-              marginTop: 20,
-              padding: "16px 40px",
-              fontSize: 18,
-              background: loading ? "#adb5bd" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              color: "white",
-              border: "none",
-              borderRadius: 12,
-              cursor: loading ? "not-allowed" : "pointer",
-              fontWeight: 700,
-              width: "100%",
-            }}
-          >
+          <button onClick={generateMindMapFromText} disabled={loading} style={{ marginTop: 20, padding: "16px 40px", fontSize: 18, background: loading ? "#adb5bd" : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "white", border: "none", borderRadius: 12, cursor: loading ? "not-allowed" : "pointer", fontWeight: 700, width: "100%" }}>
             {loading ? "🔄 Generating..." : "🚀 Generate Mind Map"}
           </button>
         </div>
 
         {nodes.length > 0 && (
           <div>
-            <h2 style={{ fontSize: 28, fontWeight: 700, marginBottom: 20 }}>
-              Your Interactive Mind Map ✨
-            </h2>
+            <h2 style={{ fontSize: 28, fontWeight: 700, marginBottom: 20 }}>Your Interactive Mind Map ✨</h2>
             <MindMap nodes={nodes} />
           </div>
         )}
