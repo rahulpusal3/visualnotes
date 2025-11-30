@@ -3,9 +3,10 @@ import MindMap from "./MindMap.jsx";
 import PdfViewer from "./PdfViewer.jsx";
 
 export default function App() {
-  const [mode, setMode] = useState("notes");
-  const [nodes, setNodes] = useState([]);
-  const [textInput, setTextInput] = useState("");
+const [mode, setMode] = useState("notes");
+const [nodes, setNodes] = useState([]);
+const [textInput, setTextInput] = useState("");
+const [loading, setLoading] = useState(false);   // <-- NEW
 
   const UNSPLASH_KEY = import.meta.env.VITE_REACT_APP_UNSPLASH_KEY;
 
@@ -27,25 +28,59 @@ export default function App() {
     }
   }
 
-  async function generateMindMapFromText() {
-    const lines = textInput.split("\n").filter((l) => l.trim() !== "");
-    const newNodes = [];
-    let yOffset = 0;
+async function generateMindMapFromText() {
+  setLoading(true);
+  try {
+    const normalized = textInput
+      .replace(/\r\n/g, "\n")
+      .replace(/\d+\.\s*/g, "\n")
+      .replace(/[•·•]/g, "\n");
 
-    for (let line of lines) {
-      const image = await fetchImage(line);
+    let parts = normalized
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .flatMap((line) =>
+        line
+          .split(/[,;:—–|]+/)
+          .map((p) => p.trim())
+          .filter(Boolean)
+      );
+
+    const unique = Array.from(new Set(parts)).slice(0, 20); // LIMIT TO 20 NODES
+
+    const fetchPromises = unique.map((label) =>
+      fetchImage(label).then((img) => ({ label, image: img }))
+    );
+
+    const results = await Promise.all(fetchPromises);
+
+    const newNodes = [];
+    const cols = 3;
+    const xGap = 220;
+    const yGap = 180;
+
+    results.forEach((r, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
       newNodes.push({
-        id: line,
-        label: line,
-        image,
-        x: 200,
-        y: yOffset,
+        id: `${i}-${r.label}`,
+        label: r.label,
+        image: r.image,
+        x: 40 + col * xGap,
+        y: 40 + row * yGap,
       });
-      yOffset += 150;
-    }
+    });
 
     setNodes(newNodes);
+  } catch (err) {
+    console.error("generateMindMapFromText error:", err);
+    alert("Something went wrong while generating the map. Check console.");
+  } finally {
+    setLoading(false);
   }
+}
+
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>
@@ -65,12 +100,14 @@ export default function App() {
             style={{ width: "100%", height: 150 }}
           />
 
-          <button
-            onClick={generateMindMapFromText}
-            style={{ marginTop: 10, padding: "10px 20px" }}
-          >
-            Generate Mind Map
-          </button>
+        <button
+  onClick={generateMindMapFromText}
+  style={{ marginTop: 10, padding: "10px 20px" }}
+  disabled={loading}
+>
+  {loading ? "Generating…" : "Generate Mind Map"}
+</button>
+
 
           <MindMap nodes={nodes} />
         </>
