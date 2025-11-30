@@ -1,5 +1,5 @@
 import { useState } from "react";
-import MindMap from "./MindMap";
+import MindMap from "./MindMap.jsx";
 import PdfViewer from "./PdfViewer";
 
 export default function App() {
